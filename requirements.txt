@@ -1,0 +1,36 @@
+Core dependencies 
+
+pandas==2.2.2 numpy==1.26.4
+
+Database 
+
+sqlalchemy==2.0.30
+
+CLI / Interface 
+
+rich==13.7.1
+
+Date and time handling 
+
+python-dateutil==2.9.0.post0
+
+File handling / backup 
+
+schedule==1.2.1
+
+Environment config 
+
+python-dotenv==1.0.1
+
+AI / LLM local (GGUF) 
+
+llama-cpp-python==0.2.82
+
+Optional: API (future) 
+
+fastapi==0.111.0 uvicorn==0.30.1
+
+Optional: Logging enhancement 
+
+loguru==0.7.2
+
