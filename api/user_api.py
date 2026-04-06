@@ -392,3 +392,147 @@ def delete_user_api(
     finally:
 
         session.close()
+
+# =========================================================
+# CHANGE PASSWORD
+# =========================================================
+
+from core.user_manager import verify_password
+
+
+@router.put("/change-password")
+def change_password(
+    data: Dict,
+    user=Depends(
+        get_current_user_from_header
+    ),
+) -> Dict:
+
+    session = get_session()
+
+    try:
+
+        username = user.get(
+            "username"
+        )
+
+        old_password = data.get(
+            "old_password"
+        )
+
+        new_password = data.get(
+            "new_password"
+        )
+
+        # -------------------------------------------------
+        # VALIDASI INPUT
+        # -------------------------------------------------
+
+        if not old_password:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Password lama wajib",
+            )
+
+        if not new_password:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Password baru wajib",
+            )
+
+        if len(new_password) < 4:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Password minimal 4 karakter",
+            )
+
+        # -------------------------------------------------
+        # AMBIL USER
+        # -------------------------------------------------
+
+        db_user = session.execute(
+            select(User)
+            .where(
+                User.username == username
+            )
+        ).scalar_one_or_none()
+
+        if not db_user:
+
+            raise HTTPException(
+                status_code=404,
+                detail="User tidak ditemukan",
+            )
+
+        # -------------------------------------------------
+        # VERIFIKASI PASSWORD LAMA
+        # -------------------------------------------------
+
+        if not verify_password(
+            old_password,
+            db_user.password_hash,
+        ):
+
+            raise HTTPException(
+                status_code=401,
+                detail="Password lama salah",
+            )
+
+        # -------------------------------------------------
+        # UPDATE PASSWORD
+        # -------------------------------------------------
+
+        db_user.password_hash = hash_password(
+            new_password
+        )
+
+        session.commit()
+
+        logger.info(
+            f"Password diganti: {username}"
+        )
+
+        return {
+            "status": "success",
+            "message": "Password berhasil diganti",
+        }
+
+    except HTTPException:
+
+        session.rollback()
+
+        raise
+
+    except SQLAlchemyError as exc:
+
+        session.rollback()
+
+        logger.error(
+            f"Gagal change password: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Database error",
+        )
+
+    except Exception as exc:
+
+        session.rollback()
+
+        logger.error(
+            f"Unexpected error change password: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error",
+        )
+
+    finally:
+
+        session.close()
+
