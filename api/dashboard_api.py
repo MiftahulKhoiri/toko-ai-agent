@@ -1164,6 +1164,148 @@ def get_chart_data() -> Dict:
 
         session.close()
 
+# =========================================================
+# LAPORAN BERDASARKAN RENTANG TANGGAL
+# =========================================================
+
+from datetime import datetime
+
+
+@app.get("/laporan/range")
+def get_laporan_range(
+    start: str,
+    end: str,
+) -> Dict:
+
+    session = SessionLocal()
+
+    try:
+
+        logger.info(
+            f"Request laporan range: {start} - {end}"
+        )
+
+        # -------------------------------------------------
+        # VALIDASI FORMAT TANGGAL
+        # -------------------------------------------------
+
+        try:
+
+            start_date = datetime.strptime(
+                start,
+                "%Y-%m-%d",
+            ).date()
+
+            end_date = datetime.strptime(
+                end,
+                "%Y-%m-%d",
+            ).date()
+
+        except ValueError:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Format tanggal harus YYYY-MM-DD",
+            )
+
+        if end_date < start_date:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Tanggal akhir tidak boleh sebelum tanggal awal",
+            )
+
+        # -------------------------------------------------
+        # QUERY PENDAPATAN
+        # -------------------------------------------------
+
+        pendapatan = session.execute(
+            select(
+                func.sum(
+                    Transaksi.pendapatan
+                )
+            )
+            .where(
+                Transaksi.tanggal >= start_date,
+                Transaksi.tanggal <= end_date,
+            )
+        ).scalar()
+
+        # -------------------------------------------------
+        # QUERY BIAYA
+        # -------------------------------------------------
+
+        biaya = session.execute(
+            select(
+                func.sum(
+                    Biaya.jumlah
+                )
+            )
+            .where(
+                Biaya.tanggal >= start_date,
+                Biaya.tanggal <= end_date,
+            )
+        ).scalar()
+
+        total_pendapatan = float(
+            pendapatan or 0
+        )
+
+        total_biaya = float(
+            biaya or 0
+        )
+
+        laba = (
+            total_pendapatan
+            - total_biaya
+        )
+
+        return {
+            "start": str(start_date),
+            "end": str(end_date),
+            "pendapatan": total_pendapatan,
+            "biaya": total_biaya,
+            "laba": laba,
+        }
+
+    except HTTPException:
+
+        session.rollback()
+
+        raise
+
+    except SQLAlchemyError as exc:
+
+        session.rollback()
+
+        logger.error(
+            f"Gagal laporan range: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Database error",
+        )
+
+    except Exception as exc:
+
+        session.rollback()
+
+        logger.error(
+            f"Unexpected error laporan range: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error",
+        )
+
+    finally:
+
+        session.close()
+
+
+
 
 
 
