@@ -18,6 +18,7 @@ from fastapi import FastAPI, HTTPException
 from sqlalchemy import select, func
 from sqlalchemy.exc import SQLAlchemyError
 from api.auth import login_user_api
+from api.user_api import router as user_router
 
 from database.db import SessionLocal
 from database.models import (
