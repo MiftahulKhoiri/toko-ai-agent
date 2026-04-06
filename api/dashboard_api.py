@@ -800,3 +800,145 @@ def list_barang() -> List[Dict]:
 
         session.close()
 
+# =========================================================
+# EDIT BARANG
+# =========================================================
+
+@app.put("/barang/{barang_id}")
+def edit_barang(
+    barang_id: int,
+    data: Dict,
+) -> Dict:
+
+    session = SessionLocal()
+
+    try:
+
+        logger.info(
+            f"Request edit barang ID={barang_id}"
+        )
+
+        nama = data.get("nama")
+        satuan = data.get("satuan")
+
+        # -------------------------------------------------
+        # VALIDASI INPUT
+        # -------------------------------------------------
+
+        if not nama:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Nama barang wajib diisi",
+            )
+
+        if not satuan:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Satuan wajib diisi",
+            )
+
+        satuan_valid = ["kg", "liter", "pcs"]
+
+        if satuan not in satuan_valid:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Satuan harus kg, liter, atau pcs",
+            )
+
+        # -------------------------------------------------
+        # CEK BARANG
+        # -------------------------------------------------
+
+        barang = session.execute(
+            select(Barang)
+            .where(
+                Barang.id == barang_id
+            )
+        ).scalar_one_or_none()
+
+        if not barang:
+
+            raise HTTPException(
+                status_code=404,
+                detail="Barang tidak ditemukan",
+            )
+
+        # -------------------------------------------------
+        # CEK DUPLIKAT NAMA
+        # -------------------------------------------------
+
+        existing = session.execute(
+            select(Barang)
+            .where(
+                Barang.nama == nama,
+                Barang.id != barang_id,
+            )
+        ).scalar_one_or_none()
+
+        if existing:
+
+            raise HTTPException(
+                status_code=409,
+                detail="Nama barang sudah digunakan",
+            )
+
+        # -------------------------------------------------
+        # UPDATE DATA
+        # -------------------------------------------------
+
+        barang.nama = nama
+        barang.satuan = satuan
+
+        session.commit()
+
+        logger.info(
+            f"Barang berhasil diupdate ID={barang_id}"
+        )
+
+        return {
+            "status": "success",
+            "id": barang_id,
+            "nama": nama,
+            "satuan": satuan,
+        }
+
+    except HTTPException:
+
+        session.rollback()
+
+        raise
+
+    except SQLAlchemyError as exc:
+
+        session.rollback()
+
+        logger.error(
+            f"Gagal update barang: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Database error",
+        )
+
+    except Exception as exc:
+
+        session.rollback()
+
+        logger.error(
+            f"Unexpected error edit barang: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error",
+        )
+
+    finally:
+
+        session.close()
+
+
