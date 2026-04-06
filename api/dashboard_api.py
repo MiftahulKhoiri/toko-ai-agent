@@ -605,3 +605,121 @@ def input_audit_stok(data: Dict) -> Dict:
             "status": "success",
             "nama_barang": nama_barang,
             "stok
+
+# =========================================================
+# TAMBAH BARANG
+# =========================================================
+
+@app.post("/barang")
+def tambah_barang_api(data: Dict) -> Dict:
+
+    session = SessionLocal()
+
+    try:
+
+        nama = data.get("nama")
+        satuan = data.get("satuan")
+
+        # -------------------------------------------------
+        # VALIDASI INPUT
+        # -------------------------------------------------
+
+        if not nama:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Nama barang wajib diisi",
+            )
+
+        if not satuan:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Satuan wajib diisi",
+            )
+
+        satuan_valid = ["kg", "liter", "pcs"]
+
+        if satuan not in satuan_valid:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Satuan harus kg, liter, atau pcs",
+            )
+
+        # -------------------------------------------------
+        # CEK DUPLIKAT
+        # -------------------------------------------------
+
+        existing = session.execute(
+            select(Barang)
+            .where(
+                Barang.nama == nama
+            )
+        ).scalar_one_or_none()
+
+        if existing:
+
+            raise HTTPException(
+                status_code=409,
+                detail="Barang sudah ada",
+            )
+
+        # -------------------------------------------------
+        # SIMPAN DATA
+        # -------------------------------------------------
+
+        barang = Barang(
+            nama=nama,
+            satuan=satuan,
+        )
+
+        session.add(barang)
+
+        session.commit()
+
+        logger.info(
+            f"Barang berhasil dibuat: {nama}"
+        )
+
+        return {
+            "status": "success",
+            "nama": nama,
+            "satuan": satuan,
+        }
+
+    except HTTPException:
+
+        session.rollback()
+
+        raise
+
+    except SQLAlchemyError as exc:
+
+        session.rollback()
+
+        logger.error(
+            f"Gagal tambah barang: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Database error",
+        )
+
+    except Exception as exc:
+
+        session.rollback()
+
+        logger.error(
+            f"Unexpected error tambah barang: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error",
+        )
+
+    finally:
+
+        session.close()
