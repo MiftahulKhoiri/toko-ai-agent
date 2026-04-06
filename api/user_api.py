@@ -690,6 +690,59 @@ def admin_reset_password(
 
         session.close()
 
+# =========================================================
+# LOGOUT USER
+# =========================================================
+
+from fastapi import Header
+from core.token_manager import blacklist_token
+
+
+@router.post("/logout")
+def logout_user(
+    authorization: str = Header(...),
+):
+
+    try:
+
+        if not authorization.startswith(
+            "Bearer "
+        ):
+
+            raise HTTPException(
+                status_code=401,
+                detail="Format token salah",
+            )
+
+        token = authorization.replace(
+            "Bearer ",
+            ""
+        )
+
+        blacklist_token(
+            token
+        )
+
+        logger.info(
+            "User logout"
+        )
+
+        return {
+            "status": "success",
+            "message": "Logout berhasil",
+        }
+
+    except Exception as exc:
+
+        logger.error(
+            f"Logout error: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Logout gagal",
+        )
+
 
 
 
