@@ -1304,6 +1304,114 @@ def get_laporan_range(
 
         session.close()
 
+# =========================================================
+# SEARCH BARANG
+# =========================================================
+
+@app.get("/barang/search")
+def search_barang(
+    q: str,
+    limit: int = 20,
+) -> List[Dict]:
+
+    session = SessionLocal()
+
+    try:
+
+        logger.info(
+            f"Search barang: {q}"
+        )
+
+        # -------------------------------------------------
+        # VALIDASI INPUT
+        # -------------------------------------------------
+
+        if not q:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Query tidak boleh kosong",
+            )
+
+        if limit <= 0:
+
+            limit = 20
+
+        if limit > 100:
+
+            limit = 100
+
+        # -------------------------------------------------
+        # QUERY SEARCH
+        # -------------------------------------------------
+
+        results = session.execute(
+            select(
+                Barang.id,
+                Barang.nama,
+                Barang.satuan,
+            )
+            .where(
+                Barang.nama.ilike(
+                    f"%{q}%"
+                )
+            )
+            .order_by(
+                Barang.nama.asc()
+            )
+            .limit(limit)
+        ).all()
+
+        data: List[Dict] = []
+
+        for row in results:
+
+            data.append(
+                {
+                    "id": row.id,
+                    "nama": row.nama,
+                    "satuan": row.satuan,
+                }
+            )
+
+        logger.info(
+            f"Hasil search: {len(data)} barang"
+        )
+
+        return data
+
+    except HTTPException:
+
+        raise
+
+    except SQLAlchemyError as exc:
+
+        logger.error(
+            f"Gagal search barang: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Database error",
+        )
+
+    except Exception as exc:
+
+        logger.error(
+            f"Unexpected error search barang: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error",
+        )
+
+    finally:
+
+        session.close()
+
+
+
 
 
 
