@@ -743,6 +743,76 @@ def logout_user(
             detail="Logout gagal",
         )
 
+# =========================================================
+# REFRESH TOKEN
+# =========================================================
+
+from database.models_refresh_token import (
+    RefreshToken,
+)
+
+from api.auth import (
+    create_access_token,
+)
+
+import datetime
+
+
+@router.post("/refresh-token")
+def refresh_token_api(
+    data: Dict,
+):
+
+    session = get_session()
+
+    try:
+
+        token = data.get(
+            "refresh_token"
+        )
+
+        if not token:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Refresh token wajib",
+            )
+
+        record = session.execute(
+            select(RefreshToken)
+            .where(
+                RefreshToken.token == token
+            )
+        ).scalar_one_or_none()
+
+        if not record:
+
+            raise HTTPException(
+                status_code=401,
+                detail="Refresh token invalid",
+            )
+
+        if record.is_revoked:
+
+            raise HTTPException(
+                status_code=401,
+                detail="Refresh token revoked",
+            )
+
+        new_access_token = create_access_token(
+            data={
+                "sub": record.username,
+            }
+        )
+
+        return {
+            "access_token": new_access_token,
+            "token_type": "bearer",
+        }
+
+    finally:
+
+        session.close()
 
 
 
