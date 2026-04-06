@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard Toko AI Agent</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    background-color: #f4f4f4;
+}
+
+h1 {
+    text-align: center;
+}
+
+.container {
+    max-width: 800px;
+    margin: auto;
+}
+
+.card {
+    background: white;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 8px;
+    box-shadow: 0 0 5px rgba(0,0,0,0.1);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 8px;
+    border-bottom: 1px solid #ddd;
+    text-align: left;
+}
+
+.status {
+    margin-top: 10px;
+    font-size: 14px;
+    color: gray;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>Dashboard Toko AI Agent</h1>
+
+<div class="container">
+
+<div class="card">
+<h2>Laporan Hari Ini</h2>
+
+<p id="tanggal">Tanggal: -</p>
+<p id="pendapatan">Pendapatan: -</p>
+<p id="biaya">Biaya: -</p>
+<p id="laba">Laba: -</p>
+
+</div>
+
+<div class="card">
+
+<h2>Stok Hari Ini</h2>
+
+<table>
+
+<thead>
+<tr>
+<th>Nama Barang</th>
+<th>Stok</th>
+</tr>
+</thead>
+
+<tbody id="stok-table">
+</tbody>
+
+</table>
+
+</div>
+
+<div class="status" id="status">
+Memuat data...
+</div>
+
+</div>
+
+<script>
+
+const API_BASE = "";
+
+async function loadLaporan() {
+
+    try {
+
+        const response = await fetch(
+            API_BASE + "/laporan/hari-ini"
+        );
+
+        const data = await response.json();
+
+        document.getElementById(
+            "tanggal"
+        ).innerText =
+            "Tanggal: " + data.tanggal;
+
+        document.getElementById(
+            "pendapatan"
+        ).innerText =
+            "Pendapatan: Rp " +
+            data.pendapatan.toLocaleString();
+
+        document.getElementById(
+            "biaya"
+        ).innerText =
+            "Biaya: Rp " +
+            data.biaya.toLocaleString();
+
+        document.getElementById(
+            "laba"
+        ).innerText =
+            "Laba: Rp " +
+            data.laba.toLocaleString();
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        setStatus(
+            "Gagal memuat laporan"
+        );
+
+    }
+
+}
+
+async function loadStok() {
+
+    try {
+
+        const response = await fetch(
+            API_BASE + "/stok"
+        );
+
+        const data = await response.json();
+
+        const table =
+            document.getElementById(
+                "stok-table"
+            );
+
+        table.innerHTML = "";
+
+        data.forEach(item => {
+
+            const row =
+                document.createElement("tr");
+
+            row.innerHTML = `
+                <td>${item.nama}</td>
+                <td>${item.stok}</td>
+            `;
+
+            table.appendChild(row);
+
+        });
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        setStatus(
+            "Gagal memuat stok"
+        );
+
+    }
+
+}
+
+function setStatus(message) {
+
+    document.getElementById(
+        "status"
+    ).innerText = message;
+
+}
+
+async function loadData() {
+
+    setStatus("Memuat data...");
+
+    await loadLaporan();
+
+    await loadStok();
+
+    setStatus("Data diperbarui");
+
+}
+
+loadData();
+
+setInterval(
+    loadData,
+    30000
+);
+
+</script>
+
+</body>
+</html>
