@@ -1410,6 +1410,137 @@ def search_barang(
 
         session.close()
 
+# =========================================================
+# LIST BARANG DENGAN PAGINATION
+# =========================================================
+
+@app.get("/barang/paginated")
+def list_barang_paginated(
+    page: int = 1,
+    page_size: int = 20,
+) -> Dict:
+
+    session = SessionLocal()
+
+    try:
+
+        logger.info(
+            f"List barang page={page} size={page_size}"
+        )
+
+        # -------------------------------------------------
+        # VALIDASI INPUT
+        # -------------------------------------------------
+
+        if page <= 0:
+
+            page = 1
+
+        if page_size <= 0:
+
+            page_size = 20
+
+        if page_size > 100:
+
+            page_size = 100
+
+        offset = (
+            (page - 1)
+            * page_size
+        )
+
+        # -------------------------------------------------
+        # TOTAL DATA
+        # -------------------------------------------------
+
+        total_items = session.execute(
+            select(
+                func.count(
+                    Barang.id
+                )
+            )
+        ).scalar()
+
+        total_items = int(
+            total_items or 0
+        )
+
+        # -------------------------------------------------
+        # QUERY DATA
+        # -------------------------------------------------
+
+        results = session.execute(
+            select(
+                Barang.id,
+                Barang.nama,
+                Barang.satuan,
+                Barang.created_at,
+            )
+            .order_by(
+                Barang.nama.asc()
+            )
+            .offset(offset)
+            .limit(page_size)
+        ).all()
+
+        data = []
+
+        for row in results:
+
+            data.append(
+                {
+                    "id": row.id,
+                    "nama": row.nama,
+                    "satuan": row.satuan,
+                    "created_at": (
+                        row.created_at.isoformat()
+                        if row.created_at
+                        else None
+                    ),
+                }
+            )
+
+        total_pages = (
+            (total_items + page_size - 1)
+            // page_size
+        )
+
+        return {
+            "page": page,
+            "page_size": page_size,
+            "total_items": total_items,
+            "total_pages": total_pages,
+            "data": data,
+        }
+
+    except SQLAlchemyError as exc:
+
+        logger.error(
+            f"Gagal list barang paginated: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Database error",
+        )
+
+    except Exception as exc:
+
+        logger.error(
+            f"Unexpected error pagination: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error",
+        )
+
+    finally:
+
+        session.close()
+
+
+
 
 
 
