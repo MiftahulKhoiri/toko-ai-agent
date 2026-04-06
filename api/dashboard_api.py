@@ -1052,6 +1052,120 @@ def delete_barang(
 
         session.close()
 
+# =========================================================
+# DATA CHART 7 HARI TERAKHIR
+# =========================================================
+
+from datetime import timedelta
+
+
+@app.get("/laporan/chart")
+def get_chart_data() -> Dict:
+
+    session = SessionLocal()
+
+    try:
+
+        logger.info(
+            "Request chart data 7 hari"
+        )
+
+        today = get_today()
+
+        start_date = today - timedelta(
+            days=6
+        )
+
+        # -------------------------------------------------
+        # QUERY DATA
+        # -------------------------------------------------
+
+        results = session.execute(
+            select(
+                Transaksi.tanggal,
+                func.sum(
+                    Transaksi.pendapatan
+                ),
+                func.sum(
+                    Biaya.jumlah
+                ),
+            )
+            .outerjoin(
+                Biaya,
+                Biaya.tanggal == Transaksi.tanggal,
+            )
+            .where(
+                Transaksi.tanggal >= start_date
+            )
+            .group_by(
+                Transaksi.tanggal
+            )
+            .order_by(
+                Transaksi.tanggal
+            )
+        ).all()
+
+        labels = []
+        pendapatan_data = []
+        biaya_data = []
+        laba_data = []
+
+        for row in results:
+
+            tanggal = row[0]
+
+            pendapatan = float(
+                row[1] or 0
+            )
+
+            biaya = float(
+                row[2] or 0
+            )
+
+            laba = pendapatan - biaya
+
+            labels.append(
+                tanggal.strftime(
+                    "%d-%m"
+                )
+            )
+
+            pendapatan_data.append(
+                pendapatan
+            )
+
+            biaya_data.append(
+                biaya
+            )
+
+            laba_data.append(
+                laba
+            )
+
+        return {
+            "labels": labels,
+            "pendapatan": pendapatan_data,
+            "biaya": biaya_data,
+            "laba": laba_data,
+        }
+
+    except SQLAlchemyError as exc:
+
+        logger.error(
+            f"Gagal ambil chart data: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Database error",
+        )
+
+    finally:
+
+        session.close()
+
+
+
 
 
 
