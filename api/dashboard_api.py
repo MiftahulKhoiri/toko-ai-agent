@@ -310,3 +310,173 @@ def system_info() -> Dict:
             status_code=500,
             detail="System info failed",
         )
+
+# =========================================================
+# INPUT PENDAPATAN
+# =========================================================
+
+@app.post("/transaksi/pendapatan")
+def input_pendapatan(data: Dict) -> Dict:
+
+    session = SessionLocal()
+
+    try:
+
+        jumlah = data.get("jumlah")
+
+        if jumlah is None:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Jumlah wajib diisi",
+            )
+
+        if float(jumlah) < 0:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Jumlah tidak boleh negatif",
+            )
+
+        tanggal = get_today()
+
+        existing = session.execute(
+            select(Transaksi)
+            .where(
+                Transaksi.tanggal == tanggal
+            )
+        ).scalar_one_or_none()
+
+        if existing:
+
+            existing.pendapatan = float(jumlah)
+
+            message = "Pendapatan diperbarui"
+
+        else:
+
+            transaksi = Transaksi(
+                tanggal=tanggal,
+                pendapatan=float(jumlah),
+            )
+
+            session.add(transaksi)
+
+            message = "Pendapatan disimpan"
+
+        session.commit()
+
+        logger.info(
+            f"Pendapatan berhasil: {jumlah}"
+        )
+
+        return {
+            "status": "success",
+            "message": message,
+            "jumlah": float(jumlah),
+        }
+
+    except HTTPException:
+
+        session.rollback()
+
+        raise
+
+    except SQLAlchemyError as exc:
+
+        session.rollback()
+
+        logger.error(
+            f"Gagal simpan pendapatan: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Database error",
+        )
+
+    finally:
+
+        session.close()
+
+
+# =========================================================
+# INPUT BIAYA
+# =========================================================
+
+@app.post("/transaksi/biaya")
+def input_biaya(data: Dict) -> Dict:
+
+    session = SessionLocal()
+
+    try:
+
+        nama = data.get("nama")
+
+        jumlah = data.get("jumlah")
+
+        if not nama:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Nama biaya wajib diisi",
+            )
+
+        if jumlah is None:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Jumlah wajib diisi",
+            )
+
+        if float(jumlah) < 0:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Jumlah tidak boleh negatif",
+            )
+
+        tanggal = get_today()
+
+        biaya = Biaya(
+            tanggal=tanggal,
+            nama=nama,
+            jumlah=float(jumlah),
+        )
+
+        session.add(biaya)
+
+        session.commit()
+
+        logger.info(
+            f"Biaya berhasil: {nama} {jumlah}"
+        )
+
+        return {
+            "status": "success",
+            "nama": nama,
+            "jumlah": float(jumlah),
+        }
+
+    except HTTPException:
+
+        session.rollback()
+
+        raise
+
+    except SQLAlchemyError as exc:
+
+        session.rollback()
+
+        logger.error(
+            f"Gagal simpan biaya: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Database error",
+        )
+
+    finally:
+
+        session.close()
