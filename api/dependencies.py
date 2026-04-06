@@ -106,3 +106,36 @@ def require_login(
         )
 
     return user
+
+def audit_success(
+    user,
+    action,
+    endpoint,
+):
+
+    from core.activity_logger import log_activity
+
+    log_activity(
+        username=user.get("username"),
+        action=action,
+        endpoint=endpoint,
+        status="SUCCESS",
+    )
+
+
+def audit_failed(
+    user,
+    action,
+    endpoint,
+    error,
+):
+
+    from core.activity_logger import log_activity
+
+    log_activity(
+        username=user.get("username"),
+        action=action,
+        endpoint=endpoint,
+        status="FAILED",
+        message=str(error),
+    )
