@@ -941,4 +941,117 @@ def edit_barang(
 
         session.close()
 
+# =========================================================
+# HAPUS BARANG
+# =========================================================
+
+@app.delete("/barang/{barang_id}")
+def delete_barang(
+    barang_id: int,
+) -> Dict:
+
+    session = SessionLocal()
+
+    try:
+
+        logger.info(
+            f"Request hapus barang ID={barang_id}"
+        )
+
+        # -------------------------------------------------
+        # CEK BARANG
+        # -------------------------------------------------
+
+        barang = session.execute(
+            select(Barang)
+            .where(
+                Barang.id == barang_id
+            )
+        ).scalar_one_or_none()
+
+        if not barang:
+
+            raise HTTPException(
+                status_code=404,
+                detail="Barang tidak ditemukan",
+            )
+
+        # -------------------------------------------------
+        # CEK RELASI STOK
+        # -------------------------------------------------
+
+        stok_exists = session.execute(
+            select(StokAudit.id)
+            .where(
+                StokAudit.barang_id == barang_id
+            )
+            .limit(1)
+        ).scalar_one_or_none()
+
+        if stok_exists:
+
+            raise HTTPException(
+                status_code=409,
+                detail="Barang tidak bisa dihapus karena masih memiliki riwayat stok",
+            )
+
+        # -------------------------------------------------
+        # HAPUS DATA
+        # -------------------------------------------------
+
+        nama_barang = barang.nama
+
+        session.delete(barang)
+
+        session.commit()
+
+        logger.info(
+            f"Barang berhasil dihapus ID={barang_id}"
+        )
+
+        return {
+            "status": "success",
+            "id": barang_id,
+            "nama": nama_barang,
+            "message": "Barang berhasil dihapus",
+        }
+
+    except HTTPException:
+
+        session.rollback()
+
+        raise
+
+    except SQLAlchemyError as exc:
+
+        session.rollback()
+
+        logger.error(
+            f"Gagal hapus barang: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Database error",
+        )
+
+    except Exception as exc:
+
+        session.rollback()
+
+        logger.error(
+            f"Unexpected error delete barang: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error",
+        )
+
+    finally:
+
+        session.close()
+
+
+
 
