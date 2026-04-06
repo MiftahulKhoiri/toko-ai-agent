@@ -2,16 +2,16 @@
 api/dashboard_api.py
 Dashboard API menggunakan FastAPI untuk toko-ai-agent
 
-Fitur:
-- API stok hari ini
-- API laporan harian
-- API health check
-- Logging
-- Error handling
+Perbaikan:
+- Session management lebih aman
+- Error handling lebih stabil
+- Logging lebih jelas
+- Type hint lengkap
+- Response konsisten
 """
 
-from datetime import datetime
-from typing import List, Dict
+from datetime import datetime, date
+from typing import List, Dict, Generator
 
 from fastapi import FastAPI, HTTPException
 
@@ -27,11 +27,11 @@ from database.models import (
 )
 
 from system.health_check import run_health_check
-
 from logging_config import get_logger
 
 
 logger = get_logger(__name__)
+
 
 app = FastAPI(
     title="Toko AI Agent API",
@@ -43,11 +43,31 @@ app = FastAPI(
 # UTIL
 # =========================================================
 
-def get_session():
-    return SessionLocal()
+def get_session() -> Generator:
+    """
+    Generator session database aman
+    """
+
+    session = SessionLocal()
+
+    try:
+
+        yield session
+
+    finally:
+
+        try:
+
+            session.close()
+
+        except Exception as exc:
+
+            logger.error(
+                f"Gagal menutup session: {exc}"
+            )
 
 
-def get_today():
+def get_today() -> date:
 
     return datetime.now().date()
 
@@ -57,7 +77,9 @@ def get_today():
 # =========================================================
 
 @app.get("/")
-def root():
+def root() -> Dict[str, str]:
+
+    logger.info("API root accessed")
 
     return {
         "status": "running",
@@ -72,11 +94,15 @@ def root():
 @app.get("/stok")
 def get_stok_hari_ini() -> List[Dict]:
 
-    session = get_session()
+    session = SessionLocal()
 
     try:
 
         tanggal = get_today()
+
+        logger.info(
+            f"Request stok untuk tanggal: {tanggal}"
+        )
 
         results = session.execute(
             select(
@@ -92,28 +118,45 @@ def get_stok_hari_ini() -> List[Dict]:
             )
         ).all()
 
-        data = []
+        data: List[Dict] = []
 
         for row in results:
 
             data.append(
                 {
                     "nama": row.nama,
-                    "stok": row.stok_akhir,
+                    "stok": float(
+                        row.stok_akhir or 0
+                    ),
                 }
             )
+
+        logger.info(
+            f"Jumlah data stok: {len(data)}"
+        )
 
         return data
 
     except SQLAlchemyError as exc:
 
         logger.error(
-            f"Gagal ambil stok: {exc}"
+            f"Database error stok: {exc}"
         )
 
         raise HTTPException(
             status_code=500,
             detail="Database error",
+        )
+
+    except Exception as exc:
+
+        logger.error(
+            f"Unexpected error stok: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error",
         )
 
     finally:
@@ -126,13 +169,17 @@ def get_stok_hari_ini() -> List[Dict]:
 # =========================================================
 
 @app.get("/laporan/hari-ini")
-def get_laporan_harian():
+def get_laporan_harian() -> Dict:
 
-    session = get_session()
+    session = SessionLocal()
 
     try:
 
         tanggal = get_today()
+
+        logger.info(
+            f"Request laporan harian: {tanggal}"
+        )
 
         pendapatan = session.execute(
             select(
@@ -156,28 +203,49 @@ def get_laporan_harian():
             )
         ).scalar()
 
-        pendapatan = float(pendapatan or 0)
+        total_pendapatan = float(
+            pendapatan or 0
+        )
 
-        biaya = float(biaya or 0)
+        total_biaya = float(
+            biaya or 0
+        )
 
-        laba = pendapatan - biaya
+        laba = total_pendapatan - total_biaya
 
-        return {
+        response = {
             "tanggal": str(tanggal),
-            "pendapatan": pendapatan,
-            "biaya": biaya,
+            "pendapatan": total_pendapatan,
+            "biaya": total_biaya,
             "laba": laba,
         }
+
+        logger.info(
+            f"Laporan harian berhasil"
+        )
+
+        return response
 
     except SQLAlchemyError as exc:
 
         logger.error(
-            f"Gagal ambil laporan: {exc}"
+            f"Database error laporan: {exc}"
         )
 
         raise HTTPException(
             status_code=500,
             detail="Database error",
+        )
+
+    except Exception as exc:
+
+        logger.error(
+            f"Unexpected error laporan: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error",
         )
 
     finally:
@@ -190,13 +258,20 @@ def get_laporan_harian():
 # =========================================================
 
 @app.get("/health")
-def health_check():
+def health_check() -> Dict:
 
     try:
 
+        logger.info(
+            "Health check requested"
+        )
+
         result = run_health_check()
 
-        return result
+        return {
+            "status": "ok",
+            "detail": result,
+        }
 
     except Exception as exc:
 
@@ -207,4 +282,31 @@ def health_check():
         raise HTTPException(
             status_code=500,
             detail="Health check failed",
+        )
+
+
+# =========================================================
+# INFO SYSTEM
+# =========================================================
+
+@app.get("/info")
+def system_info() -> Dict:
+
+    try:
+
+        return {
+            "app": "toko-ai-agent",
+            "version": "1.0",
+            "server_time": datetime.now().isoformat(),
+        }
+
+    except Exception as exc:
+
+        logger.error(
+            f"System info error: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="System info failed",
         )
