@@ -25,6 +25,14 @@ from logging_config import get_logger
 
 logger = get_logger(__name__)
 
+# =========================================================
+# SECURITY CONFIG
+# =========================================================
+
+MAX_LOGIN_ATTEMPTS = 5
+
+LOCK_TIME_MINUTES = 15
+
 
 # =========================================================
 # CONFIG
@@ -96,11 +104,10 @@ def create_access_token(
 # =========================================================
 # LOGIN
 # =========================================================
-
 def login_user_api(
     username: str,
     password: str,
-) -> Dict:
+):
 
     session = get_session()
 
@@ -116,19 +123,48 @@ def login_user_api(
         if not user:
 
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                status_code=401,
                 detail="User tidak ditemukan",
             )
+
+        # =============================
+        # CEK LOCK
+        # =============================
+
+        if is_account_locked(user):
+
+            raise HTTPException(
+                status_code=403,
+                detail="Akun dikunci sementara",
+            )
+
+        # =============================
+        # VERIFIKASI PASSWORD
+        # =============================
 
         if not verify_password(
             password,
             user.password_hash,
         ):
 
+            register_failed_login(
+                session,
+                user,
+            )
+
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                status_code=401,
                 detail="Password salah",
             )
+
+        # =============================
+        # RESET COUNTER
+        # =============================
+
+        reset_login_attempts(
+            session,
+            user,
+        )
 
         access_token = create_access_token(
             data={
@@ -150,6 +186,8 @@ def login_user_api(
     finally:
 
         session.close()
+
+
 
 
 # =========================================================
@@ -194,3 +232,61 @@ def get_current_user(
             status_code=401,
             detail="Token invalid",
         )
+
+from datetime import datetime, timedelta
+
+
+def is_account_locked(user) -> bool:
+
+    if not user.is_locked:
+
+        return False
+
+    if user.locked_until is None:
+
+        return False
+
+    if datetime.utcnow() >= user.locked_until:
+
+        # unlock otomatis
+
+        user.is_locked = False
+
+        user.failed_login_attempts = 0
+
+        user.locked_until = None
+
+        return False
+
+    return True
+
+
+def register_failed_login(session, user):
+
+    user.failed_login_attempts += 1
+
+    if user.failed_login_attempts >= MAX_LOGIN_ATTEMPTS:
+
+        user.is_locked = True
+
+        user.locked_until = (
+            datetime.utcnow()
+            + timedelta(
+                minutes=LOCK_TIME_MINUTES
+            )
+        )
+
+    session.commit()
+
+
+def reset_login_attempts(session, user):
+
+    user.failed_login_attempts = 0
+
+    user.is_locked = False
+
+    user.locked_until = None
+
+    session.commit()
+
+
