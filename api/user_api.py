@@ -582,5 +582,115 @@ def list_activity_logs(
 
         session.close()
 
+# =========================================================
+# RESET PASSWORD OLEH ADMIN
+# =========================================================
+
+@router.put("/reset-password/{user_id}")
+def admin_reset_password(
+    user_id: int,
+    data: Dict,
+    user=Depends(
+        get_current_user_from_header
+    ),
+) -> Dict:
+
+    require_admin(user)
+
+    session = get_session()
+
+    try:
+
+        new_password = data.get(
+            "new_password"
+        )
+
+        if not new_password:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Password baru wajib",
+            )
+
+        if len(new_password) < 4:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Password minimal 4 karakter",
+            )
+
+        # =============================
+        # AMBIL USER TARGET
+        # =============================
+
+        target_user = session.execute(
+            select(User)
+            .where(
+                User.id == user_id
+            )
+        ).scalar_one_or_none()
+
+        if not target_user:
+
+            raise HTTPException(
+                status_code=404,
+                detail="User tidak ditemukan",
+            )
+
+        # =============================
+        # UPDATE PASSWORD
+        # =============================
+
+        target_user.password_hash = hash_password(
+            new_password
+        )
+
+        # =============================
+        # UNLOCK ACCOUNT
+        # =============================
+
+        target_user.failed_login_attempts = 0
+
+        target_user.is_locked = False
+
+        target_user.locked_until = None
+
+        session.commit()
+
+        logger.info(
+            f"Admin reset password user: {target_user.username}"
+        )
+
+        return {
+            "status": "success",
+            "username": target_user.username,
+            "message": "Password berhasil direset",
+        }
+
+    except HTTPException:
+
+        session.rollback()
+
+        raise
+
+    except SQLAlchemyError as exc:
+
+        session.rollback()
+
+        logger.error(
+            f"Gagal reset password: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Database error",
+        )
+
+    finally:
+
+        session.close()
+
+
+
 
 
