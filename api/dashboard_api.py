@@ -480,3 +480,128 @@ def input_biaya(data: Dict) -> Dict:
     finally:
 
         session.close()
+
+# =========================================================
+# INPUT AUDIT STOK
+# =========================================================
+
+@app.post("/audit-stok")
+def input_audit_stok(data: Dict) -> Dict:
+
+    session = SessionLocal()
+
+    try:
+
+        nama_barang = data.get("nama_barang")
+        stok_masuk = data.get("stok_masuk", 0)
+        stok_keluar = data.get("stok_keluar", 0)
+        catatan = data.get("catatan", "")
+
+        # -------------------------------------------------
+        # VALIDASI INPUT
+        # -------------------------------------------------
+
+        if not nama_barang:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Nama barang wajib diisi",
+            )
+
+        if float(stok_masuk) < 0:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Stok masuk tidak boleh negatif",
+            )
+
+        if float(stok_keluar) < 0:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Stok keluar tidak boleh negatif",
+            )
+
+        tanggal = get_today()
+
+        # -------------------------------------------------
+        # CEK BARANG
+        # -------------------------------------------------
+
+        barang = session.execute(
+            select(Barang)
+            .where(
+                Barang.nama == nama_barang
+            )
+        ).scalar_one_or_none()
+
+        if not barang:
+
+            raise HTTPException(
+                status_code=404,
+                detail="Barang tidak ditemukan",
+            )
+
+        # -------------------------------------------------
+        # AMBIL STOK TERAKHIR
+        # -------------------------------------------------
+
+        last_audit = session.execute(
+            select(StokAudit)
+            .where(
+                StokAudit.barang_id == barang.id
+            )
+            .order_by(
+                StokAudit.tanggal.desc()
+            )
+        ).scalars().first()
+
+        stok_awal = (
+            float(last_audit.stok_akhir)
+            if last_audit
+            else 0.0
+        )
+
+        stok_akhir = (
+            stok_awal
+            + float(stok_masuk)
+            - float(stok_keluar)
+        )
+
+        # -------------------------------------------------
+        # VALIDASI STOK
+        # -------------------------------------------------
+
+        if stok_akhir < 0:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Stok akhir tidak boleh negatif",
+            )
+
+        # -------------------------------------------------
+        # SIMPAN AUDIT
+        # -------------------------------------------------
+
+        audit = StokAudit(
+            barang_id=barang.id,
+            tanggal=tanggal,
+            stok_awal=stok_awal,
+            stok_masuk=float(stok_masuk),
+            stok_keluar=float(stok_keluar),
+            stok_akhir=stok_akhir,
+            catatan=catatan,
+        )
+
+        session.add(audit)
+
+        session.commit()
+
+        logger.info(
+            f"Audit stok berhasil: {nama_barang}"
+        )
+
+        return {
+            "status": "success",
+            "nama_barang": nama_barang,
+            "stok
