@@ -536,3 +536,51 @@ def change_password(
 
         session.close()
 
+# =========================================================
+# LIST ACTIVITY LOG
+# =========================================================
+
+@router.get("/activity")
+def list_activity_logs(
+    user=Depends(
+        get_current_user_from_header
+    ),
+):
+
+    require_admin(user)
+
+    session = get_session()
+
+    try:
+
+        results = session.execute(
+            select(ActivityLog)
+            .order_by(
+                ActivityLog.created_at.desc()
+            )
+            .limit(100)
+        ).scalars().all()
+
+        data = []
+
+        for log in results:
+
+            data.append(
+                {
+                    "username": log.username,
+                    "action": log.action,
+                    "endpoint": log.endpoint,
+                    "status": log.status,
+                    "message": log.message,
+                    "created_at": log.created_at.isoformat(),
+                }
+            )
+
+        return data
+
+    finally:
+
+        session.close()
+
+
+
