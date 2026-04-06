@@ -28,6 +28,12 @@ from logging_config import get_logger
 
 logger = get_logger(__name__)
 
+import uuid
+
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8
+
+REFRESH_TOKEN_EXPIRE_DAYS = 7
+
 # =========================================================
 # SECURITY CONFIG
 # =========================================================
@@ -53,6 +59,38 @@ pwd_context = CryptContext(
     deprecated="auto",
 )
 
+
+from database.models_refresh_token import RefreshToken
+
+
+def create_refresh_token(
+    username: str,
+):
+
+    session = get_session()
+
+    try:
+
+        token = str(
+            uuid.uuid4()
+        )
+
+        record = RefreshToken(
+            username=username,
+            token=token,
+        )
+
+        session.add(
+            record
+        )
+
+        session.commit()
+
+        return token
+
+    finally:
+
+        session.close()
 
 # =========================================================
 # UTIL
