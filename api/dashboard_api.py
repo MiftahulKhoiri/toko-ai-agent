@@ -17,6 +17,7 @@ from fastapi import FastAPI, HTTPException
 
 from sqlalchemy import select, func
 from sqlalchemy.exc import SQLAlchemyError
+from api.auth import login_user_api
 
 from database.db import SessionLocal
 from database.models import (
@@ -1539,14 +1540,40 @@ def list_barang_paginated(
 
         session.close()
 
+# =========================================================
+# LOGIN
+# =========================================================
 
+@app.post("/login")
+def login(
+    data: Dict,
+):
 
+    username = data.get(
+        "username"
+    )
 
+    password = data.get(
+        "password"
+    )
 
+    if not username:
 
+        raise HTTPException(
+            status_code=400,
+            detail="Username wajib",
+        )
 
+    if not password:
 
+        raise HTTPException(
+            status_code=400,
+            detail="Password wajib",
+        )
 
-
+    return login_user_api(
+        username,
+        password,
+    )
 
 
