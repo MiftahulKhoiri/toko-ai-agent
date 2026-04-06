@@ -1,16 +1,22 @@
 """main.py - Entry point utama sistem toko-ai-agent
 
-Fungsi:
-- Menu CLI utama
-- Audit stok
-- Pembukuan
-- Laporan
-- Backup
-- AI agent
+Fitur:
+- Login user
+- Role admin / kasir
+- Session user
+- Menu berbasis role
 """
 
 import sys
 from typing import Optional
+
+from startup.startup_tasks import run_startup_tasks
+
+from core.user_manager import (
+    login_user,
+    create_default_admin,
+    require_admin,
+)
 
 from core.audit import (
     tambah_barang,
@@ -34,33 +40,23 @@ from laporan import (
 
 from ai.agent import tanya_ai
 
+from export.export_excel import (
+    export_laporan_harian,
+    export_laporan_bulanan,
+    export_laporan_stok,
+)
+
 
 # =========================================================
-# UTIL INPUT
+# SESSION
 # =========================================================
-
-def input_float(prompt: str) -> Optional[float]:
-    """Input float dengan validasi"""
-    try:
-        value = input(prompt).strip()
-        if not value:
-            print("Input tidak boleh kosong")
-            return None
-        number = float(value)
-        if number < 0:
-            print("Nilai tidak boleh negatif")
-            return None
-        return number
-    except ValueError:
-        print("Input harus berupa angka")
-        return None
-    except Exception as exc:
-        print(f"[ERROR] Gagal membaca input: {exc}")
-        return None
+CURRENT_ROLE: Optional[str] = None
 
 
+# =========================================================
+# INPUT UTIL
+# =========================================================
 def input_string(prompt: str) -> Optional[str]:
-    """Input string dengan validasi"""
     try:
         value = input(prompt).strip()
         if not value:
@@ -68,152 +64,193 @@ def input_string(prompt: str) -> Optional[str]:
             return None
         return value
     except Exception as exc:
-        print(f"[ERROR] Gagal membaca input: {exc}")
+        print(f"[ERROR] Input gagal: {exc}")
         return None
+
+
+def input_float(prompt: str) -> Optional[float]:
+    try:
+        value = input(prompt).strip()
+        if not value:
+            print("Input kosong")
+            return None
+        number = float(value)
+        if number < 0:
+            print("Nilai tidak boleh negatif")
+            return None
+        return number
+    except ValueError:
+        print("Harus angka")
+        return None
+    except Exception as exc:
+        print(f"[ERROR] Input gagal: {exc}")
+        return None
+
+
+# =========================================================
+# LOGIN
+# =========================================================
+def login() -> bool:
+    global CURRENT_ROLE
+    try:
+        print()
+        print("===================================")
+        print("        LOGIN SISTEM              ")
+        print("===================================")
+        username = input_string("Username : ")
+        if username is None:
+            return False
+        password = input_string("Password : ")
+        if password is None:
+            return False
+        role = login_user(username=username, password=password)
+        if role:
+            CURRENT_ROLE = role
+            return True
+        return False
+    except Exception as exc:
+        print(f"[ERROR] Login gagal: {exc}")
+        return False
 
 
 # =========================================================
 # MENU
 # =========================================================
-
 def menu() -> None:
     print()
     print("======================================")
-    print("       SISTEM TOKO AI AGENT          ")
+    print(f"        ROLE: {CURRENT_ROLE}          ")
     print("======================================")
-    print("1. Tambah Barang")
-    print("2. Audit Stok Hari Ini")
-    print("3. Lihat Audit Hari Ini")
-    print("4. Input Pendapatan Harian")
+    print("1. Tambah Barang (admin)")
+    print("2. Audit Stok")
+    print("3. Lihat Audit")
+    print("4. Input Pendapatan")
     print("5. Input Biaya")
-    print("6. Lihat Laba Hari Ini")
-    print("7. Backup Sekarang")
+    print("6. Lihat Laba")
+    print("7. Backup (admin)")
     print("8. Laporan Harian")
     print("9. Laporan Bulanan")
-    print("10. Laporan Stok Hari Ini")
+    print("10. Laporan Stok")
     print("11. Tanya AI")
+    print("12. Export Harian")
+    print("13. Export Bulanan")
+    print("14. Export Stok")
+    print("15. Logout")
     print("0. Keluar")
     print("======================================")
 
 
 # =========================================================
-# HANDLER
-# =========================================================
-
-def handle_tambah_barang():
-    try:
-        nama = input_string("Nama barang : ")
-        if nama is None:
-            return
-        satuan = input_string("Satuan (kg/liter/pcs) : ")
-        if satuan is None:
-            return
-        tambah_barang(nama=nama, satuan=satuan)
-    except Exception as exc:
-        print(f"[ERROR] Gagal menambah barang: {exc}")
-
-
-def handle_audit():
-    try:
-        nama = input_string("Nama barang : ")
-        if nama is None:
-            return
-        masuk = input_float("Stok masuk : ")
-        if masuk is None:
-            return
-        keluar = input_float("Stok keluar : ")
-        if keluar is None:
-            return
-        catatan = input("Catatan (opsional) : ")
-        tambah_audit(
-            nama_barang=nama,
-            stok_masuk=masuk,
-            stok_keluar=keluar,
-            catatan=catatan,
-        )
-    except Exception as exc:
-        print(f"[ERROR] Gagal input audit: {exc}")
-
-
-def handle_pendapatan():
-    try:
-        jumlah = input_float("Pendapatan hari ini : ")
-        if jumlah is None:
-            return
-        tambah_pendapatan_harian(jumlah=jumlah)
-    except Exception as exc:
-        print(f"[ERROR] Gagal input pendapatan: {exc}")
-
-
-def handle_biaya():
-    try:
-        nama = input_string("Nama biaya : ")
-        if nama is None:
-            return
-        jumlah = input_float("Jumlah biaya : ")
-        if jumlah is None:
-            return
-        tambah_biaya(nama=nama, jumlah=jumlah)
-    except Exception as exc:
-        print(f"[ERROR] Gagal input biaya: {exc}")
-
-
-def handle_backup():
-    try:
-        backup_all()
-    except Exception as exc:
-        print(f"[ERROR] Backup gagal: {exc}")
-
-
-def handle_tanya_ai():
-    try:
-        pertanyaan = input_string("Tanya AI : ")
-        if pertanyaan is None:
-            return
-        tanya_ai(pertanyaan=pertanyaan)
-    except Exception as exc:
-        print(f"[ERROR] Gagal menjalankan AI: {exc}")
-
-
-# =========================================================
 # MAIN LOOP
 # =========================================================
-
-def main():
+def main() -> None:
+    global CURRENT_ROLE
     try:
+        run_startup_tasks()
+        create_default_admin()
+
         while True:
+            if not CURRENT_ROLE:
+                if not login():
+                    continue
+
             menu()
             choice = input("Pilih menu : ").strip()
+
+            # ADMIN ONLY
             if choice == "1":
-                handle_tambah_barang()
+                if not require_admin(CURRENT_ROLE):
+                    continue
+                nama = input_string("Nama barang : ")
+                if nama is None:
+                    continue
+                satuan = input_string("Satuan : ")
+                if satuan is None:
+                    continue
+                tambah_barang(nama=nama, satuan=satuan)
+
             elif choice == "2":
-                handle_audit()
+                nama = input_string("Nama barang : ")
+                if nama is None:
+                    continue
+                masuk = input_float("Stok masuk : ")
+                if masuk is None:
+                    continue
+                keluar = input_float("Stok keluar : ")
+                if keluar is None:
+                    continue
+                catatan = input("Catatan : ")
+                tambah_audit(
+                    nama_barang=nama,
+                    stok_masuk=masuk,
+                    stok_keluar=keluar,
+                    catatan=catatan,
+                )
+
             elif choice == "3":
                 lihat_audit_hari_ini()
+
             elif choice == "4":
-                handle_pendapatan()
+                jumlah = input_float("Pendapatan : ")
+                if jumlah is None:
+                    continue
+                tambah_pendapatan_harian(jumlah=jumlah)
+
             elif choice == "5":
-                handle_biaya()
+                nama = input_string("Nama biaya : ")
+                if nama is None:
+                    continue
+                jumlah = input_float("Jumlah biaya : ")
+                if jumlah is None:
+                    continue
+                tambah_biaya(nama=nama, jumlah=jumlah)
+
             elif choice == "6":
                 hitung_laba_harian()
+
             elif choice == "7":
-                handle_backup()
+                if not require_admin(CURRENT_ROLE):
+                    continue
+                backup_all()
+
             elif choice == "8":
                 laporan_harian()
+
             elif choice == "9":
                 laporan_bulanan()
+
             elif choice == "10":
                 laporan_stok_hari_ini()
+
             elif choice == "11":
-                handle_tanya_ai()
+                pertanyaan = input_string("Tanya AI : ")
+                if pertanyaan is None:
+                    continue
+                tanya_ai(pertanyaan=pertanyaan)
+
+            elif choice == "12":
+                export_laporan_harian()
+
+            elif choice == "13":
+                export_laporan_bulanan()
+
+            elif choice == "14":
+                export_laporan_stok()
+
+            elif choice == "15":
+                print("Logout")
+                CURRENT_ROLE = None
+
             elif choice == "0":
-                print("Keluar dari sistem")
+                print("Keluar sistem")
                 sys.exit(0)
+
             else:
                 print("Menu tidak valid")
+
     except KeyboardInterrupt:
         print()
-        print("Program dihentikan user")
+        print("Program dihentikan")
     except Exception as exc:
         print(f"[ERROR] Sistem crash: {exc}")
 
@@ -221,6 +258,5 @@ def main():
 # =========================================================
 # ENTRY POINT
 # =========================================================
-
 if __name__ == "__main__":
     main()
