@@ -723,3 +723,80 @@ def tambah_barang_api(data: Dict) -> Dict:
     finally:
 
         session.close()
+
+# =========================================================
+# LIST BARANG
+# =========================================================
+
+@app.get("/barang")
+def list_barang() -> List[Dict]:
+
+    session = SessionLocal()
+
+    try:
+
+        logger.info(
+            "Request list barang"
+        )
+
+        results = session.execute(
+            select(
+                Barang.id,
+                Barang.nama,
+                Barang.satuan,
+                Barang.created_at,
+            )
+            .order_by(
+                Barang.nama.asc()
+            )
+        ).all()
+
+        data: List[Dict] = []
+
+        for row in results:
+
+            data.append(
+                {
+                    "id": row.id,
+                    "nama": row.nama,
+                    "satuan": row.satuan,
+                    "created_at": (
+                        row.created_at.isoformat()
+                        if row.created_at
+                        else None
+                    ),
+                }
+            )
+
+        logger.info(
+            f"Jumlah barang: {len(data)}"
+        )
+
+        return data
+
+    except SQLAlchemyError as exc:
+
+        logger.error(
+            f"Gagal ambil list barang: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Database error",
+        )
+
+    except Exception as exc:
+
+        logger.error(
+            f"Unexpected error list barang: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error",
+        )
+
+    finally:
+
+        session.close()
+
