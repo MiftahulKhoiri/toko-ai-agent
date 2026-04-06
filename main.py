@@ -2,10 +2,11 @@
 
 Fungsi:
 - Menu CLI utama
-- Integrasi audit stok
-- Integrasi pembukuan
-- Integrasi backup
-- Validasi input user
+- Audit stok
+- Pembukuan
+- Laporan
+- Backup
+- AI agent
 """
 
 import sys
@@ -25,13 +26,21 @@ from core.pembukuan import (
 
 from backup.auto_backup import backup_all
 
+from laporan import (
+    laporan_harian,
+    laporan_bulanan,
+    laporan_stok_hari_ini,
+)
+
+from ai.agent import tanya_ai
+
 
 # =========================================================
 # UTIL INPUT
 # =========================================================
 
 def input_float(prompt: str) -> Optional[float]:
-    """Input angka float dengan validasi"""
+    """Input float dengan validasi"""
     try:
         value = input(prompt).strip()
         if not value:
@@ -67,12 +76,11 @@ def input_string(prompt: str) -> Optional[str]:
 # MENU
 # =========================================================
 
-def menu():
-    """Tampilkan menu utama"""
+def menu() -> None:
     print()
-    print("===================================")
-    print("       SISTEM TOKO AI AGENT        ")
-    print("===================================")
+    print("======================================")
+    print("       SISTEM TOKO AI AGENT          ")
+    print("======================================")
     print("1. Tambah Barang")
     print("2. Audit Stok Hari Ini")
     print("3. Lihat Audit Hari Ini")
@@ -80,12 +88,16 @@ def menu():
     print("5. Input Biaya")
     print("6. Lihat Laba Hari Ini")
     print("7. Backup Sekarang")
+    print("8. Laporan Harian")
+    print("9. Laporan Bulanan")
+    print("10. Laporan Stok Hari Ini")
+    print("11. Tanya AI")
     print("0. Keluar")
-    print("===================================")
+    print("======================================")
 
 
 # =========================================================
-# HANDLER MENU
+# HANDLER
 # =========================================================
 
 def handle_tambah_barang():
@@ -153,12 +165,21 @@ def handle_backup():
         print(f"[ERROR] Backup gagal: {exc}")
 
 
+def handle_tanya_ai():
+    try:
+        pertanyaan = input_string("Tanya AI : ")
+        if pertanyaan is None:
+            return
+        tanya_ai(pertanyaan=pertanyaan)
+    except Exception as exc:
+        print(f"[ERROR] Gagal menjalankan AI: {exc}")
+
+
 # =========================================================
 # MAIN LOOP
 # =========================================================
 
 def main():
-    """Loop utama program"""
     try:
         while True:
             menu()
@@ -177,6 +198,14 @@ def main():
                 hitung_laba_harian()
             elif choice == "7":
                 handle_backup()
+            elif choice == "8":
+                laporan_harian()
+            elif choice == "9":
+                laporan_bulanan()
+            elif choice == "10":
+                laporan_stok_hari_ini()
+            elif choice == "11":
+                handle_tanya_ai()
             elif choice == "0":
                 print("Keluar dari sistem")
                 sys.exit(0)
