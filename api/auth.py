@@ -19,6 +19,9 @@ from sqlalchemy import select
 
 from database.db import SessionLocal
 from core.user_manager import User
+from core.token_manager import (
+    is_token_blacklisted,
+)
 
 from logging_config import get_logger
 
