@@ -79,3 +79,26 @@ class BackupLog(Base):
     file_backup = Column(String)
     status = Column(String)
     catatan = Column(Text)
+
+# =========================================================
+# SECURITY FIELDS
+# =========================================================
+
+from sqlalchemy import Boolean
+
+
+failed_login_attempts = Column(
+    Integer,
+    default=0,
+)
+
+is_locked = Column(
+    Boolean,
+    default=False,
+)
+
+locked_until = Column(
+    DateTime,
+    nullable=True,
+)
+
