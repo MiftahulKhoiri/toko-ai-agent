@@ -928,6 +928,67 @@ def backup_database_api(
             detail="Backup gagal",
         )
 
+# =========================================================
+# RESTORE DATABASE
+# =========================================================
+
+from backup.restore_backup import (
+    restore_database,
+)
+
+
+@router.post("/restore")
+def restore_database_api(
+    data: Dict,
+    user=Depends(
+        get_current_user_from_header
+    ),
+):
+
+    require_admin(user)
+
+    try:
+
+        backup_file = data.get(
+            "backup_file"
+        )
+
+        if not backup_file:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Backup file wajib diisi",
+            )
+
+        result = restore_database(
+            backup_file
+        )
+
+        logger.warning(
+            f"Database direstore oleh admin: {user.get('username')}"
+        )
+
+        return result
+
+    except FileNotFoundError:
+
+        raise HTTPException(
+            status_code=404,
+            detail="File backup tidak ditemukan",
+        )
+
+    except Exception as exc:
+
+        logger.error(
+            f"Restore error: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Restore gagal",
+        )
+
+
 
 
 
