@@ -815,5 +815,77 @@ def refresh_token_api(
         session.close()
 
 
+# =========================================================
+# FORCE LOGOUT USER (ADMIN)
+# =========================================================
+
+from core.token_manager import (
+    revoke_all_user_tokens,
+)
+
+
+@router.post("/force-logout/{user_id}")
+def force_logout_user(
+    user_id: int,
+    user=Depends(
+        get_current_user_from_header
+    ),
+):
+
+    require_admin(user)
+
+    session = get_session()
+
+    try:
+
+        target_user = session.execute(
+            select(User)
+            .where(
+                User.id == user_id
+            )
+        ).scalar_one_or_none()
+
+        if not target_user:
+
+            raise HTTPException(
+                status_code=404,
+                detail="User tidak ditemukan",
+            )
+
+        username = target_user.username
+
+        revoke_all_user_tokens(
+            username
+        )
+
+        logger.info(
+            f"Force logout user: {username}"
+        )
+
+        return {
+            "status": "success",
+            "username": username,
+            "message": "User berhasil logout paksa",
+        }
+
+    except HTTPException:
+
+        raise
+
+    except Exception as exc:
+
+        logger.error(
+            f"Force logout error: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Force logout gagal",
+        )
+
+    finally:
+
+        session.close()
+
 
 
