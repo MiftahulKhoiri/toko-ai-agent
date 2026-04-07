@@ -79,3 +79,48 @@ def is_token_blacklisted(
     finally:
 
         session.close()
+
+# =========================================================
+# REVOKE SEMUA REFRESH TOKEN USER
+# =========================================================
+
+from database.models_refresh_token import RefreshToken
+
+
+def revoke_all_user_tokens(
+    username: str,
+):
+
+    session = SessionLocal()
+
+    try:
+
+        tokens = session.execute(
+            select(RefreshToken)
+            .where(
+                RefreshToken.username == username,
+                RefreshToken.is_revoked == False,
+            )
+        ).scalars().all()
+
+        for token in tokens:
+
+            token.is_revoked = True
+
+        session.commit()
+
+        logger.info(
+            f"Semua token direvoke: {username}"
+        )
+
+    except SQLAlchemyError as exc:
+
+        session.rollback()
+
+        logger.error(
+            f"Gagal revoke token: {exc}"
+        )
+
+    finally:
+
+        session.close()
