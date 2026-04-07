@@ -888,4 +888,46 @@ def force_logout_user(
         session.close()
 
 
+# =========================================================
+# BACKUP DATABASE
+# =========================================================
+
+from backup.manual_backup import create_backup
+
+
+@router.post("/backup")
+def backup_database_api(
+    user=Depends(
+        get_current_user_from_header
+    ),
+):
+
+    require_admin(user)
+
+    try:
+
+        backup_path = create_backup()
+
+        logger.info(
+            f"Backup oleh admin: {user.get('username')}"
+        )
+
+        return {
+            "status": "success",
+            "backup_file": backup_path,
+        }
+
+    except Exception as exc:
+
+        logger.error(
+            f"Backup error: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Backup gagal",
+        )
+
+
+
 
