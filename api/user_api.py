@@ -989,6 +989,44 @@ def restore_database_api(
         )
 
 
+# =========================================================
+# LIST BACKUP FILES
+# =========================================================
+
+from backup.list_backups import (
+    list_backup_files,
+)
+
+
+@router.get("/backups")
+def list_backups_api(
+    user=Depends(
+        get_current_user_from_header
+    ),
+):
+
+    require_admin(user)
+
+    try:
+
+        backups = list_backup_files()
+
+        return {
+            "status": "success",
+            "total": len(backups),
+            "data": backups,
+        }
+
+    except Exception as exc:
+
+        logger.error(
+            f"Gagal ambil list backup: {exc}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Gagal membaca backup",
+        )
 
 
 
